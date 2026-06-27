@@ -45,6 +45,10 @@
 //! Notice the increase in pitch as the factor increases
 //!
 //! Since the samples are played faster the audio wave get shorter increasing their frequencies
+//!
+//! If you want to change the speed *without* changing the pitch, use
+//! [`Source::speed_preserve_pitch`](crate::Source::speed_preserve_pitch) /
+//! [`TimeStretch`](crate::source::TimeStretch) instead.
 
 use std::time::Duration;
 

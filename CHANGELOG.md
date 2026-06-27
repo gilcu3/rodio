@@ -18,9 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `DEFAULT_SAMPLE_RATE` set to match `cpal::SAMPLE_RATE_48K`.
 - Added `Source::resample` and `ResampleConfig` for high-quality sample rate conversion.
 - Presets for `AGC`.
+- Added pitch-preserving speed control: `Source::speed_preserve_pitch` (the
+  `TimeStretch` source, WSOLA-based) and `Player::set_preserve_pitch` /
+  `Player::preserve_pitch`.
 
 ### Changed
 
+- `Player::set_speed` now preserves pitch by default (use
+  `Player::set_preserve_pitch(false)` for the previous pitch-shifting
+  behaviour). `Source::speed` is unchanged.
 - Breaking: `Done` now calls a callback instead of decrementing an `Arc<AtomicUsize>`.
 - Updated `cpal` to v0.18.
 - Clarified `Source::current_span_len()` documentation to specify it returns total span length.

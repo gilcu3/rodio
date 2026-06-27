@@ -301,6 +301,10 @@ name = "signal_generator"
 required-features = ["playback"]
 
 [[example]]
+name = "speed_control"
+required-features = ["playback", "vorbis"]
+
+[[example]]
 name = "spatial"
 required-features = ["playback", "vorbis"]
 

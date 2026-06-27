@@ -62,6 +62,7 @@ struct Controls {
     volume: Mutex<Float>,
     stopped: AtomicBool,
     speed: Mutex<f32>,
+    preserve_pitch: AtomicBool,
     to_clear: Mutex<u32>,
     seek: Mutex<Option<SeekOrder>>,
     position: Mutex<Duration>,
@@ -89,6 +90,7 @@ impl Player {
                 volume: Mutex::new(1.0),
                 stopped: AtomicBool::new(false),
                 speed: Mutex::new(1.0),
+                preserve_pitch: AtomicBool::new(true),
                 to_clear: Mutex::new(0),
                 seek: Mutex::new(None),
                 position: Mutex::new(Duration::ZERO),
@@ -121,7 +123,7 @@ impl Player {
 
         let source = Done::new(
             source
-                .speed(1.0)
+                .speed_preserve_pitch(1.0)
                 // Must be placed before pausable but after speed & delay
                 .track_position()
                 .pausable(false)
@@ -155,10 +157,9 @@ impl Player {
             amp.set_factor(*controls.volume.lock().unwrap());
             amp.inner_mut()
                 .set_paused(controls.pause.load(Ordering::SeqCst));
-            amp.inner_mut()
-                .inner_mut()
-                .inner_mut()
-                .set_factor(*controls.speed.lock().unwrap());
+            let speed = amp.inner_mut().inner_mut().inner_mut();
+            speed.set_factor(*controls.speed.lock().unwrap());
+            speed.set_preserve_pitch(controls.preserve_pitch.load(Ordering::SeqCst));
             if let Some(seek) = controls.seek.lock().unwrap().take() {
                 seek.attempt(amp)
             }
@@ -195,14 +196,13 @@ impl Player {
         *self.controls.speed.lock().unwrap()
     }
 
-    /// Changes the play speed of the sound. Does not adjust the samples, only the playback speed.
+    /// Changes the play speed of the sound.
     ///
     /// # Note:
-    /// 1. **Increasing the speed will increase the pitch by the same factor**
-    /// - If you set the speed to 0.5 this will halve the frequency of the sound
-    ///   lowering its pitch.
-    /// - If you set the speed to 2 the frequency will double raising the
-    ///   pitch of the sound.
+    /// 1. **By default the pitch is preserved**: changing the speed only makes
+    ///    the sound play faster or slower, like a modern media player. Call
+    ///    [`set_preserve_pitch(false)`](Player::set_preserve_pitch) to instead
+    ///    get the cheaper behaviour where the pitch shifts with the speed.
     /// 2. **Change in the speed affect the total duration inversely**
     /// - If you set the speed to 0.5, the total duration will be twice as long.
     /// - If you set the speed to 2 the total duration will be halve of what it
@@ -211,6 +211,28 @@ impl Player {
     #[inline]
     pub fn set_speed(&self, value: f32) {
         *self.controls.speed.lock().unwrap() = value;
+    }
+
+    /// Returns whether pitch is preserved when the playback speed is changed.
+    ///
+    /// See [`Player::set_preserve_pitch`] for details. Defaults to `true`.
+    #[inline]
+    pub fn preserve_pitch(&self) -> bool {
+        self.controls.preserve_pitch.load(Ordering::SeqCst)
+    }
+
+    /// Sets whether changing the playback speed should preserve the pitch.
+    ///
+    /// When `true` (the default), [`set_speed`](Player::set_speed) changes the
+    /// tempo while keeping the original pitch, using time-scale modification
+    /// (WSOLA). This costs some CPU and may introduce mild artifacts.
+    ///
+    /// When `false`, changing the speed also shifts the pitch (the cheaper,
+    /// resampling-based behaviour). A speed of exactly `1.0` is always a
+    /// zero-overhead passthrough regardless of this setting.
+    #[inline]
+    pub fn set_preserve_pitch(&self, value: bool) {
+        self.controls.preserve_pitch.store(value, Ordering::SeqCst);
     }
 
     /// Resumes playback of a paused player.

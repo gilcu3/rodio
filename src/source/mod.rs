@@ -47,6 +47,7 @@ pub use self::speed::Speed;
 pub use self::square::SquareWave;
 pub use self::stoppable::Stoppable;
 pub use self::take::TakeDuration;
+pub use self::time_stretch::TimeStretch;
 pub use self::triangle::TriangleWave;
 pub use self::uniform::UniformSourceIterator;
 pub use self::zero::{Zero, ZeroError};
@@ -87,6 +88,7 @@ mod speed;
 mod square;
 mod stoppable;
 mod take;
+mod time_stretch;
 mod triangle;
 mod uniform;
 mod zero;
@@ -520,6 +522,33 @@ pub trait Source: Iterator<Item = Sample> {
         Self: Sized,
     {
         speed::speed(self, ratio)
+    }
+
+    /// Changes the play speed of the sound *without* changing its pitch.
+    ///
+    /// This is the pitch-preserving counterpart of [`speed`](Source::speed):
+    /// the tempo changes (the sound finishes sooner or later) but it keeps the
+    /// same perceived pitch, like the speed control of a modern media player.
+    ///
+    /// # Note:
+    /// 1. **The pitch stays the same** regardless of the factor. A factor of
+    ///    `2.0` plays twice as fast, `0.5` half as fast.
+    /// 2. **Change in the speed affects the total duration inversely**, exactly
+    ///    like [`speed`](Source::speed).
+    /// 3. Unlike [`speed`](Source::speed) this performs time-scale modification
+    ///    on the samples, which costs some CPU and may add mild artifacts. A
+    ///    factor of exactly `1.0` is a zero-overhead passthrough.
+    ///
+    /// The algorithm is WSOLA, the same one used by MPlayer/ffmpeg's
+    /// `scaletempo` filter. See [`TimeStretch`] for details.
+    #[doc(alias = "scaletempo")]
+    #[doc(alias = "wsola")]
+    #[inline]
+    fn speed_preserve_pitch(self, ratio: f32) -> TimeStretch<Self>
+    where
+        Self: Sized,
+    {
+        time_stretch::time_stretch(self, ratio)
     }
 
     /// Consumes the source and returns a SamplesBuffer
